@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BrokerType {
+  ZERODHA
+  GROWW
+}
+
+model User {
+  id       String @id @default(cuid())
+  email    String @unique
+  password String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  brokerAccounts BrokerAccount[]
+}
+
+model BrokerAccount {
+  id String @id @default(cuid())
+
+  broker       BrokerType
+  brokerUserId String
+
+  accessToken  String?
+  refreshToken String?
+
+  tokenExpiry  DateTime?
+  lastSyncedAt DateTime?
+
+  isConnected        Boolean   @default(true)
+  lastSuccessfulSync DateTime?
+  lastSyncError      String?
+
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  snapshots PortfolioSnapshot[]
+
+  @@unique([userId, broker])
+
+  @@index([userId])
+  @@index([broker, brokerUserId])
+}
+
+model PortfolioSnapshot {
+  id String @id @default(cuid())
+
+  portfolioValue Float
+  investedValue  Float
+  totalPnl       Float
+  dailyPnl       Float
+
+  snapshotDate DateTime @default(now())
+
+  brokerAccountId String
+  brokerAccount BrokerAccount @relation(fields: [brokerAccountId], references: [id], onDelete: Cascade)
+
+  @@index([brokerAccountId])
+  @@index([snapshotDate])
+  @@index([brokerAccountId, snapshotDate])
+}
+
+model BenchmarkSnapshot {
+  id String @id @default(cuid())
+
+  benchmark String
+
+  value Float
+
+  snapshotDate DateTime @default(now())
+
+  @@index([benchmark])
+  @@index([snapshotDate])
+  @@index([benchmark, snapshotDate])
+}
