@@ -3,6 +3,8 @@ import {
   useState,
 } from 'react';
 
+import { useNavigate } from 'react-router-dom';
+
 import SummaryCard from '../components/SummaryCard';
 import HoldingsTable from '../components/HoldingsTable';
 import AllocationChart from '../components/AllocationChart';
@@ -21,6 +23,8 @@ import {
   getBenchmarkHistory,
 } from '../apis/benchmark';
 
+import { getBrokerStatus } from '../apis/broker';
+
 import { formatCurrency } from '../utils/formatter';
 import { percentageSeries } from '../utils/chart';
 
@@ -29,6 +33,8 @@ import type { Holding } from '../types/holding';
 import api from '../apis/axios';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+
   const [snapshot, setSnapshot] =
     useState<any>(null);
 
@@ -49,38 +55,62 @@ const Dashboard = () => {
         niftyReturn: number;
       }[]
     >([]);
+  const [brokerStatus, setBrokerStatus] =
+  useState<any>(null);
+  const reconnectZerodha =
+    async () => {
+      try {
+        const response =
+          await api.get(
+            '/broker/zerodha/login'
+          );
 
-  const reconnectZerodha = async () => {
-    try {
-      const response = await api.get(
-        '/broker/zerodha/login'
-      );
-
-      window.location.href =
-        response.data.loginUrl;
-    } catch (error) {
-      console.error(
-        'Reconnect failed:',
-        error
-      );
-    }
-  };
+        window.location.href =
+          response.data.loginUrl;
+      } catch (error) {
+        console.error(
+          'Reconnect failed:',
+          error
+        );
+      }
+    };
 
   useEffect(() => {
     const load = async () => {
       try {
+        const status = await getBrokerStatus();
+
+        setBrokerStatus(status);
+
+        if (!status.hasBroker) {
+          navigate('/connect-broker');
+          return;
+        }
+
+        if (!status.isConnected) {
+          setSessionExpired(true);
+          return;
+        }
+
         const snapshotData =
           await getLatestSnapshot();
 
         const holdingsData =
           await getHoldings();
 
-        setSnapshot(snapshotData);
-        setHoldings(holdingsData);
+        setSnapshot(
+          snapshotData
+        );
+
+        setHoldings(
+          holdingsData
+        );
 
         try {
           const snapshotHistory =
-            await getSnapshotHistory(30);
+            await getSnapshotHistory(
+              30
+            );
 
           const benchmarkHistory =
             await getBenchmarkHistory(
@@ -89,8 +119,10 @@ const Dashboard = () => {
             );
 
           if (
-            snapshotHistory.length > 1 &&
-            benchmarkHistory.length > 1
+            snapshotHistory.length >
+              1 &&
+            benchmarkHistory.length >
+              1
           ) {
             const portfolioValues =
               snapshotHistory.map(
@@ -100,7 +132,8 @@ const Dashboard = () => {
 
             const niftyValues =
               benchmarkHistory.map(
-                (b: any) => b.value
+                (b: any) =>
+                  b.value
               );
 
             const portfolioReturns =
@@ -119,9 +152,10 @@ const Dashboard = () => {
                   item: any,
                   index: number
                 ) => ({
-                  date: new Date(
-                    item.snapshotDate
-                  ).toLocaleDateString(),
+                  date:
+                    new Date(
+                      item.snapshotDate
+                    ).toLocaleDateString(),
 
                   portfolioReturn:
                     portfolioReturns[
@@ -139,28 +173,29 @@ const Dashboard = () => {
               merged
             );
           }
-        } catch (chartError) {
+        } catch (
+          chartError
+        ) {
           console.error(
             'Chart data error:',
             chartError
           );
         }
-      } catch (error: any) {
-        if (
-          error.message ===
-          'ZERODHA_SESSION_EXPIRED'
-        ) {
-          setSessionExpired(true);
-        } else {
-          console.error(error);
-        }
+      } catch (
+        error: any
+      ) {
+        console.error(
+          error
+        );
       } finally {
-        setLoading(false);
+        setLoading(
+          false
+        );
       }
     };
 
     load();
-  }, []);
+  }, [navigate]);
 
   if (loading) {
     return (
@@ -175,19 +210,26 @@ const Dashboard = () => {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="rounded-xl border border-slate-700 bg-slate-900 p-8 text-center">
           <h2 className="mb-4 text-2xl font-bold text-white">
-            Zerodha Session Expired
+            Zerodha Session
+            Expired
           </h2>
 
           <p className="mb-6 text-slate-300">
-            Your Zerodha access token has expired.
-            Please reconnect your account.
+            Your Zerodha
+            access token has
+            expired. Please
+            reconnect your
+            account.
           </p>
 
           <button
-            onClick={reconnectZerodha}
+            onClick={
+              reconnectZerodha
+            }
             className="rounded bg-blue-600 px-5 py-3 text-white hover:bg-blue-700"
           >
-            Reconnect Zerodha
+            Reconnect
+            Zerodha
           </button>
         </div>
       </div>
@@ -199,46 +241,91 @@ const Dashboard = () => {
       <h1 className="mb-8 text-4xl font-bold text-white">
         Portfolio Dashboard
       </h1>
+      {
+        brokerStatus && (
+          <div className="mb-6 rounded-xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="mb-2 text-lg font-semibold text-white">
+              Broker Status
+            </h2>
 
+            <div className="space-y-2 text-sm">
+              <p
+                className={
+                  brokerStatus.isConnected
+                    ? 'text-green-400'
+                    : 'text-red-400'
+                }
+              >
+                {brokerStatus.isConnected
+                  ? '🟢 Connected'
+                  : '🔴 Session Expired'}
+              </p>
+
+              {brokerStatus.lastSyncedAt && (
+                <p className="text-slate-400">
+                  Last Sync:{' '}
+                  {new Date(
+                    brokerStatus.lastSyncedAt
+                  ).toLocaleString()}
+                </p>
+              )}
+
+              {brokerStatus.lastSyncError && (
+                <p className="text-red-400">
+                  {brokerStatus.lastSyncError}
+                </p>
+              )}
+            </div>
+          </div>
+        )
+      }
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           title="Portfolio Value"
           value={formatCurrency(
-            snapshot?.portfolioValue ?? 0
+            snapshot?.portfolioValue ??
+              0
           )}
         />
 
         <SummaryCard
           title="Invested Value"
           value={formatCurrency(
-            snapshot?.investedValue ?? 0
+            snapshot?.investedValue ??
+              0
           )}
         />
 
         <SummaryCard
           title="Total P&L"
           value={formatCurrency(
-            snapshot?.totalPnl ?? 0
+            snapshot?.totalPnl ??
+              0
           )}
           positive={
-            (snapshot?.totalPnl ?? 0) >= 0
+            (snapshot?.totalPnl ??
+              0) >= 0
           }
         />
 
         <SummaryCard
           title="Daily P&L"
           value={formatCurrency(
-            snapshot?.dailyPnl ?? 0
+            snapshot?.dailyPnl ??
+              0
           )}
           positive={
-            (snapshot?.dailyPnl ?? 0) >= 0
+            (snapshot?.dailyPnl ??
+              0) >= 0
           }
         />
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <AllocationChart
-          holdings={holdings}
+          holdings={
+            holdings
+          }
         />
 
         <PortfolioPerformanceChart
@@ -247,7 +334,9 @@ const Dashboard = () => {
       </div>
 
       <HoldingsTable
-        holdings={holdings}
+        holdings={
+          holdings
+        }
       />
     </div>
   );

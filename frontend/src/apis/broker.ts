@@ -15,3 +15,10 @@ export const getLoginUrl = async () => {
 
   return response.data;
 };
+export const getBrokerStatus = async () => {
+    const response = await api.get(
+      '/broker/zerodha/status'
+    );
+
+    return response.data;
+  };

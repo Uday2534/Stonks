@@ -114,6 +114,18 @@ export class BrokerController {
         error?.error_type ===
         'TokenException'
       ) {
+
+        await prisma.brokerAccount.updateMany({
+          where: {
+            userId: req.user!.id,
+          },
+          data: {
+            isConnected: false,
+            lastSyncError:
+              'Access token expired',
+          },
+        });
+
         res.status(401).json({
           code:
             'ZERODHA_SESSION_EXPIRED',
@@ -123,7 +135,6 @@ export class BrokerController {
 
         return;
       }
-
       next(error);
     }
   };
@@ -189,6 +200,18 @@ export class BrokerController {
         error?.error_type ===
         'TokenException'
       ) {
+
+        await prisma.brokerAccount.updateMany({
+          where: {
+            userId: req.user!.id,
+          },
+          data: {
+            isConnected: false,
+            lastSyncError:
+              'Access token expired',
+          },
+        });
+
         res.status(401).json({
           code:
             'ZERODHA_SESSION_EXPIRED',
@@ -208,12 +231,17 @@ export class BrokerController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const userId = req.user.id;
+      if (!req.user) {
+        res.status(401).json({
+          message: 'Unauthorized',
+        });
+        return;
+      }
 
       const brokerAccount =
         await prisma.brokerAccount.findFirst({
           where: {
-            userId,
+            userId: req.user.id,
           },
           select: {
             broker: true,
@@ -223,9 +251,20 @@ export class BrokerController {
           },
         });
 
-      res.status(200).json(
-        brokerAccount
-      );
+      if (!brokerAccount) {
+        res.status(200).json({
+          hasBroker: false,
+        });
+        return;
+      }
+
+      res.status(200).json({
+        hasBroker: true,
+        broker: brokerAccount.broker,
+        isConnected: brokerAccount.isConnected,
+        lastSyncedAt: brokerAccount.lastSyncedAt,
+        lastSyncError: brokerAccount.lastSyncError,
+      });
     } catch (error) {
       next(error);
     }

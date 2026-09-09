@@ -100,47 +100,57 @@ export class PortfolioService {
   async getCurrentPortfolio(): Promise<PortfolioSummary> {
     const holdings =
       await this.brokerAdapter.getHoldings();
-
+      console.log(
+  'Holdings from broker:',
+  holdings
+);
     let investedValue = 0;
     let currentValue = 0;
     let dailyPnl = 0;
     const normalizedHoldings: PortfolioHolding[] =
-      holdings.map((holding) => {
-        const holdingInvestedValue =
-          holding.quantity *
-          holding.averagePrice;
+    holdings.map((holding) => {
 
-        const holdingCurrentValue =
-          holding.quantity *
-          holding.currentPrice;
+      const holdingInvestedValue =
+        holding.quantity *
+        holding.averagePrice;
 
-        const pnl =
-          holdingCurrentValue -
-          holdingInvestedValue;
+      const holdingCurrentValue =
+        holding.quantity *
+        holding.currentPrice;
 
-        dailyPnl +=
-          holding.quantity *
-          (
-            holding.currentPrice -
-            holding.previousClose
-          );
+      const pnl =
+        holdingCurrentValue -
+        holdingInvestedValue;
 
-        return {
-          symbol: holding.symbol,
-          quantity: holding.quantity,
-          averagePrice:
-            holding.averagePrice,
-          currentPrice:
-            holding.currentPrice,
-          previousClose:
-            holding.previousClose,
-          investedValue:
-            holdingInvestedValue,
-          currentValue:
-            holdingCurrentValue,
-          pnl,
-        };
-      });
+      investedValue +=
+        holdingInvestedValue;
+
+      currentValue +=
+        holdingCurrentValue;
+
+      dailyPnl +=
+        holding.quantity *
+        (
+          holding.currentPrice -
+          holding.previousClose
+        );
+
+      return {
+        symbol: holding.symbol,
+        quantity: holding.quantity,
+        averagePrice:
+          holding.averagePrice,
+        currentPrice:
+          holding.currentPrice,
+        previousClose:
+          holding.previousClose,
+        investedValue:
+          holdingInvestedValue,
+        currentValue:
+          holdingCurrentValue,
+        pnl,
+      };
+    });
 
     const totalPnl =
       currentValue -

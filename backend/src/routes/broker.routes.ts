@@ -30,7 +30,7 @@ router.get(
   brokerController.holdings
 );
 router.get(
-  '/status',
+  '/zerodha/status',
   authenticate,
   brokerController.status
 );

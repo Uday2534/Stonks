@@ -24,6 +24,7 @@ export class SnapshotService {
         brokerAccountId: input.brokerAccountId,
       },
     });
+    
 
     return {
       id: snapshot.id,
@@ -101,5 +102,46 @@ export class SnapshotService {
         snapshotDate: 'desc',
       },
     });
+  }
+  async hasSnapshotForDate(
+    brokerAccountId: string,
+    date: Date
+  ): Promise<boolean> {
+
+    const startOfDay =
+      new Date(date);
+
+    startOfDay.setHours(
+      0,
+      0,
+      0,
+      0
+    );
+
+    const endOfDay =
+      new Date(date);
+
+    endOfDay.setHours(
+      23,
+      59,
+      59,
+      999
+    );
+
+    const snapshot =
+      await prisma.portfolioSnapshot.findFirst({
+        where: {
+          brokerAccountId,
+          snapshotDate: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
+        },
+      });
+      console.log(
+  'Generated snapshot:',
+  snapshot)
+
+    return !!snapshot;
   }
 }
